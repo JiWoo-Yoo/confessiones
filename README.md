@@ -18,3 +18,12 @@ fix: 틀린 정보 수정
 ## 🚀 Live Demo
 
 - 전체 실험실 바로가기: [https://confessiones.vercel.app/](https://confessiones.vercel.app/)
+
+## 🛠 Tech Stack
+
+프로젝트의 전체 의존성 목록은 [package.json](./playground/package.json)에서 확인하실 수 있습니다.
+
+- **Framework**: Next.js (App Router)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **Deployment**: Vercel
