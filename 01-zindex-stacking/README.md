@@ -1,5 +1,7 @@
 # 01. z-index가 무시되는 현상 (Stacking Context)
 
+[playground 페이지 확인](https://confessiones.vercel.app/zindex-stacking)
+
 ### 💥 사건 발생
 
 - 분명히 모달(Modal)의 `z-index`를 9999로 줬는데, 그보다 숫자가 훨씬 낮은 일반 컴포넌트 뒤로 숨어버리는 현상 발생.

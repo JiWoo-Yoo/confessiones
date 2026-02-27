@@ -1,5 +1,7 @@
 # 02. svg아이콘이 버튼 클릭을 방해하는 현상 (원인 불명 이슈)
 
+[playground 페이지 보기](https://confessiones.vercel.app/svg-ghost-click)
+
 ### 💥 사건 발생
 
 - 모바일 화면에서, x나 검색버튼같은 svg 아이콘을 누르면 인식(클릭)이 안되고 살짝 옆을 눌렀을 때만 인식(클릭)이 되는 문제가 있었음
