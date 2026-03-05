@@ -1,7 +1,7 @@
 # 03. 브라우저 환경에 따라 영상이 재생 안되는 경우의 대환장 상황
 
 [playground 페이지 확인](https://confessiones.vercel.app/video-codec-chaos)
-(\*playground에서는 ffmpeg.wasm 사용해볼 예정)
+(\*playground에서는 ffmpeg.wasm을 활용한 클라이언트 사이드 변환 테스트 예정)
 
 ## 📌 Issue Overview
 
@@ -15,72 +15,53 @@
 ### 1. 비디오 사양 등급(Profile)과 호환성
 
 - **이해한 내용**: 같은 H.264 코덱이라도 비디오가 요구하는 사양 등급(Profile)이 너무 높으면, 저사양 기기나 사파리 브라우저가 이를 해석하지 못하고 재생을 포기함.
-- **해결**: FFmpeg를 사용하여 호환성이 가장 높은 표준 등급(`Main Profile`)으로 사양을 낮추어 재인코딩 수행. 혹은
-- **Client-side Validation**: 무분별한 고용량/비표준 포맷 업로드를 방지하기 위해, 인프런 등 대형 서비스처럼 업로드 전 프론트엔드에서 파일 헤더를 검사하여 지원 포맷 여부를 유저에게 선제적으로 알림.
+- **해결**: FFmpeg를 사용하여 호환성이 가장 높은 표준 등급(`Main Profile`)으로 사양을 낮추어 재인코딩 수행.
+- **선제적 대응(Client-side Validation)**: 무분별한 고용량/비표준 포맷 업로드를 방지하기 위해, 업로드 전 프론트엔드에서 파일 헤더를 검사하여 지원 포맷 여부를 유저에게 알리는 로직의 필요성 체감.
 
 ### 2. 메타데이터 위치와 초기 로딩 (Moov Atom)
 
 - **이해한 내용**: 영상의 정보(목차)가 파일 끝에 위치하면, 브라우저가 파일을 끝까지 다 다운로드하기 전까지 첫 화면을 띄우지 못함.
 - **해결**: `faststart` 옵션을 통해 메타데이터를 파일 최상단으로 옮겨, 스트리밍 시작과 동시에 즉시 재생되도록 최적화.
 
-## 🛠️ 적용한 ffmpeg 변환 명령어
+## 🛠️ 적용한 FFmpeg 변환 명령어
 
-```
-ffmpeg -i input.mp4 -vcodec libx264 -profile:v main -level 3.0 -pix_fmt yuv420p -movflags +faststart output.mp4
-```
+(이곳에 직접 복사한 FFmpeg 명령어를 넣어주세요)
 
-- -profile:v main -level 3.0: 비디오 사양 등급을 낮추어 구형 스마트폰 및 사파리 브라우저까지 아우르는 범용 호환성 확보.
-- -pix_fmt yuv420p: 고사양 색상 포맷을 8-bit 표준 색역으로 강제 변환하여 디코딩 안정성 확보.
-- -movflags +faststart: 메타데이터를 파일 최상단으로 옮겨 스트리밍 시작과 동시에 즉시 재생 유도.
+- **`-profile:v main -level 3.0`**: 비디오 사양 등급을 낮추어 구형 스마트폰 및 사파리 브라우저까지 아우르는 범용 호환성 확보.
+- **`-pix_fmt yuv420p`**: 고사양 색상 포맷을 8-bit 표준 색역으로 강제 변환하여 디코딩 안정성 확보.
+- **`-movflags +faststart`**: 메타데이터를 파일 최상단으로 옮겨 스트리밍 시작과 동시에 즉시 재생 유도.
+
+---
 
 ## 🚀 Post-Mortem: 실무 최적화 및 미래 아키텍처 제언
 
-이 문제를 해결하며 프론트엔드 지식을 넘어 비디오 엔지니어링과 인프라 설계의 중요성을 체감함. 향후 프로젝트에서 지향할 **비디오 서비스 아키텍처**를 다음과 같이 정리함.
+이 문제를 해결하며 프론트엔드 지식을 넘어 비디오 엔지니어링과 인프라 설계의 중요성을 체감함. 향후 프로젝트에서 지향할 **비디오 서비스 전략**을 다음과 같이 정리함.
 
-### 1. 클라우드 기반 서버리스 트랜스코딩 (Scalability)
+### 1. 상황에 따른 구현 전략 (Strategy)
 
-- **S3 Direct Upload**: 서버의 자원을 보호하기 위해 백엔드에서 **Presigned URL**을 발급받아 프론트엔드에서 S3 저장소로 직접 영상을 업로드함.
-- **Lambda Transcoder**: S3에 파일이 올라오는 즉시 AWS Lambda를 트리거하여 FFmpeg 변환을 자동 수행함. 이는 메인 서버 부하를 0으로 유지하면서 무한한 확장성을 제공하는 업계 표준 방식임.
+비디오 변환은 리소스를 많이 사용하는 작업이므로, 서비스 규모에 따라 세 가지 대안을 검토함.
 
-### 2. 비동기 사용자 경험 (UX)
+- **Client-side (ffmpeg.wasm)**: 서버 비용은 없으나 유저 기기 부하가 큼. 특수한 로컬 편집 툴에 적합.
+- **Backend-centric (Server FFmpeg)**: 제어권이 높으나 대량 업로드 시 서버 자원 고갈 위험. 소규모/사내 시스템에 적합.
+- **Infrastructure-centric (S3 + Lambda)**: 가장 확장성이 높고 메인 서버 부하가 없는 **업계 표준 방식**. 대규모 상용 서비스에 적합.
 
-- 유저가 업로드 중 브라우저 렉을 겪지 않도록 FFmpeg.wasm 같은 클라이언트 인코딩보다는 서버 사이드 비동기 처리를 지향함.
-- 웹소켓(Socket.io) 또는 폴링을 활용해 변환 완료 상태를 실시간으로 유저에게 알리는 UI/UX를 구축할 계획임.
+### 2. 클라우드 기반 서버리스 파이프라인
 
-### 3. 데이터 운영 및 삭제 전략 (Retention)
+- **S3 Direct Upload**: 보안을 위해 **Presigned URL**을 발급받아 서버를 거치지 않고 S3로 직접 업로드.
+- **Lambda Transcoder**: 파일 업로드 시 이벤트를 트리거하여 자동 변환 수행.
 
-- **Soft Delete**: 사용자 삭제 요청 시 즉각 파일을 지우지 않고 DB 상태값만 변경하여 오삭제 및 분쟁에 대비함.
-- **Automated Hard Delete**: AWS S3 **Lifecycle Policy**를 설정하여 삭제 처리 후 30일이 지난 데이터는 자동으로 파기, 스토리지 비용을 최적화함.
+### 3. 비동기 사용자 경험 및 운영 전략
+
+- **UX**: Webhook 또는 폴링을 통해 변환 상태를 실시간으로 유저에게 알리는 UI 구축 지향.
+- **Retention**: **Soft Delete**로 데이터 유실을 방지하고, S3 **Lifecycle Policy**를 통해 30일 후 자동 Hard Delete 수행하여 비용 최적화.
 
 ### 4. 추가 학습이 필요한 전문 지식 (Deep Dive)
 
-- **Bit Depth**: 10-bit 고화질 영상이 일반 GPU 가속에 미치는 영향과 8-bit 표준 변환의 중요성.
-- **Video Engineering**: 기기별 하드웨어 디코더의 한계와 `YUV 4:2:0` 같은 색상 샘플링 방식이 웹 환경에 미치는 영향.
+- **Bit Depth**: 10-bit 고화질 영상이 일반 GPU 가속에 미치는 영향 학습.
+- **Video Engineering**: 기기별 하드웨어 디코더의 한계와 `YUV 4:2:0` 색상 샘플링 방식의 이해.
 
-### 🔗 Reference
+## 🔗 Reference
 
-- Apple Developer: HLS Authoring Specification - Apple 기기 호환성을 위한 기술 표준
-- FFmpeg Wiki: H.264 Video Encoding Guide - 웹 최적화 인코딩 옵션 가이드
-- MDN Web Docs: Video Codec Guide - 브라우저별 미디어 지원 현황
-
-## 🚀 향후 비디오 기능 구현 시 고려할 전략 (Strategy)
-
-비디오 변환은 리소스를 많이 사용하는 작업이므로, 프로젝트의 규모와 타겟 환경에 따라 다음 세 가지 전략 중 하나를 선택하여 구현할 계획임.
-
-### 1. 프론트엔드 단독 해결 (Client-side)
-
-- **방법**: `ffmpeg.wasm` 또는 `WebCodecs API` 활용.
-- **특징**: 별도의 서버 비용이 들지 않으나, WASM의 경우 라이브러리 용량이 크고 유저 기기의 CPU 부하가 높음.
-- **용도**: 가벼운 영상 편집 툴이나 보안상 로컬에서만 처리해야 하는 특수 서비스.
-
-### 2. 서버 사이드 변환 (Backend-centric)
-
-- **방법**: 프론트엔드에서 업로드한 원본을 백그라운드 서버에서 직접 `FFmpeg`로 변환.
-- **특징**: 모든 로직을 제어할 수 있어 커스터마이징이 자유롭지만, 대량 업로드 시 메인 서버 자원이 고갈될 위험이 있음.
-- **용도**: 초기 단계의 서비스나 업로드 양이 일정하게 관리되는 사내 시스템.
-
-### 3. 클라우드 인프라 활용 (Infrastructure-centric)
-
-- **방법**: AWS S3 & Lambda(Serverless)를 이용한 자동 변환 파이프라인 구축.
-- **특징**: 가장 확장성이 높고 메인 서버에 부하를 주지 않는 업계 표준 방식.
-- **용도**: 불특정 다수의 유저가 대량의 영상을 업로드하는 실제 상용 서비스.
+- [Apple Developer: HLS Authoring Specification](https://developer.apple.com/documentation/http-live-streaming/hls-authoring-specification-for-apple-devices) - Apple 기기 호환성을 위한 기술 표준
+- [FFmpeg Wiki: H.264 Video Encoding Guide](https://trac.ffmpeg.org/wiki/Encode/H.264) - 웹 최적화 인코딩 옵션 가이드
+- [MDN Web Docs: Video Codec Guide](https://developer.mozilla.org/en-US/docs/Web/Media/Guides/Formats/Video_codecs) - 브라우저별 미디어 지원 현황
