@@ -25,7 +25,9 @@
 
 ## 🛠️ 적용한 FFmpeg 변환 명령어
 
-(이곳에 직접 복사한 FFmpeg 명령어를 넣어주세요)
+```
+ffmpeg -i input.mp4 -vcodec libx264 -profile:v main -level 3.0 -pix_fmt yuv420p -movflags +faststart output.mp4
+```
 
 - **`-profile:v main -level 3.0`**: 비디오 사양 등급을 낮추어 구형 스마트폰 및 사파리 브라우저까지 아우르는 범용 호환성 확보.
 - **`-pix_fmt yuv420p`**: 고사양 색상 포맷을 8-bit 표준 색역으로 강제 변환하여 디코딩 안정성 확보.
